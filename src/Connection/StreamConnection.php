@@ -308,10 +308,24 @@ class StreamConnection extends AbstractConnection
     public function read()
     {
         $socket = $this->getResource();
-        $chunk = fgets($socket);
 
-        if ($chunk === false || $chunk === '') {
-            $this->onConnectionError('Error while reading line from the server.');
+        while (is_resource($socket)) {
+            $chunk = fgets($socket);
+
+            if (false === $chunk and
+                isset($this->parameters->read_write_timeout) and
+                $this->parameters->read_write_timeout > 0 and
+                stream_get_meta_data($socket)['timed_out']
+            ) {
+                // The timeout is expected so re-read from the socket
+                continue;
+            }
+
+            if ($chunk === false || $chunk === '') {
+                $this->onConnectionError('Error while reading line from the server.');
+            }
+
+            break;
         }
 
         $prefix = $chunk[0];
